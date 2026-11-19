@@ -92,7 +92,16 @@ CONTEST_AWARE(state, me):
 > IN YOUR WORDS: explain the one key idea in plain language — comparing `my_dist[f]` to
 > `opp_dist[f]` to decide whether a food is worth chasing — and why the tie goes to you.
 
-### 2.4 Assumptions
+### 2.4 Worked example
+On the 5×5 board below, food (3,3) is your nearest (2 steps) but the rival is 1 step away.
+Greedy chases it, arrives a turn late, and loses every later race: **0–3**. Contest-aware sees
+the lost race, heads for (0,3) instead (3 vs 4), and — because the rival detoured to (3,3) —
+finds (0,4) has flipped from a lost race to a won one: **2–1**. Same board, same rival.
+
+![Race distances](../docs/images/demo_race.png)
+![Greedy vs contest-aware paths](../docs/images/demo_paths.png)
+
+### 2.5 Assumptions
 - Deterministic, known rival policy (so no opponent modelling is needed).
 - Both players have full knowledge of the board each turn.
 - The 90%-connectivity board filter (see §4) keeps games meaningful.
@@ -204,9 +213,10 @@ the same moves and leave little to reason about.
 
 ## 7. Reproducibility
 
-- Tests: `python -m pytest` → 11 passing (BFS distances, wall detours, legal moves, collection,
+- Tests: `python -m pytest` → 12 passing (BFS distances, wall detours, legal moves, collection,
   termination, stalemate, a crafted board where contest-aware provably diverges from greedy,
-  board connectivity, and random-board games).
+  the demo board's exact 0–3 vs 2–1 outcome, board connectivity, and random-board games).
+- Worked example: `python demo.py` prints the 5×5 demo game move by move (see §2.4).
 - Full pipeline: `python experiment.py` then `python analyze.py`.
 - Code: engine `game.py`, strategies `agents.py`, boards `boards.py`, runner `experiment.py`,
   analysis `analyze.py`.

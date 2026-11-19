@@ -9,6 +9,15 @@ can reach any remaining food, or when a turn cap is hit.
 
 This module is pure game logic: it has no strategy in it. Strategies live in
 agents.py. An "agent" is just a function agent(state, who) -> move.
+
+HOW TO READ THIS FILE (demo order):
+    Board        -> the walls and grid size (never changes during a game)
+    bfs          -> shortest distances + "which way do I step first" (the core algorithm)
+    GameState    -> what changes: positions, remaining food, scores
+    apply_move   -> one player takes one step, collects food if they land on it
+    run_game     -> the turn loop: YOU, then RIVAL, until the game ends
+
+Coordinates are (row, col) with (0, 0) the TOP-LEFT corner, so 'U' is row - 1.
 """
 
 from collections import deque
@@ -52,18 +61,24 @@ def bfs(board, start, blocked=frozenset()):
         dist[cell]       shortest number of steps from start to cell
         first_move[cell] the first move (U/D/L/R) to start heading toward cell
     Neighbours are explored in ORDER, so equal-distance ties resolve U, D, L, R.
+
+    Why BFS (and not Dijkstra / A*)? Every move costs exactly 1 step, so BFS
+    already finds shortest paths: it visits cells in order of distance 0, 1, 2...
+    The first time a cell is reached is therefore via a shortest path.
+    Cost: each of the N*N cells is enqueued at most once and checks 4 neighbours
+    -> O(N^2) per call.
     """
-    dist = {start: 0}
+    dist = {start: 0}            # doubles as the "visited" set
     first_move = {start: 'S'}
-    queue = deque([start])
+    queue = deque([start])       # FIFO queue -> cells come out in distance order
     while queue:
         cur = queue.popleft()
         for move in ORDER:
             drow, dcol = DELTA[move]
             nxt = (cur[0] + drow, cur[1] + dcol)
-            if nxt in dist:
+            if nxt in dist:                                  # already found (at <= distance)
                 continue
-            if not board.passable(nxt) or nxt in blocked:
+            if not board.passable(nxt) or nxt in blocked:    # wall, off-grid, or the other player
                 continue
             dist[nxt] = dist[cur] + 1
             # A direct neighbour of start commits to `move`; deeper cells inherit
@@ -104,8 +119,11 @@ def apply_move(state, who, move):
     drow, dcol = DELTA[move]
     row, col = state.pos[who]
     nxt = (row + drow, col + dcol)
+    # Only move if the target cell is legal: on the board, not a wall, not the opponent.
+    # An illegal move is treated as 'S' (stay) instead of crashing the game.
     if move != 'S' and state.board.passable(nxt) and nxt != state.pos[other(who)]:
         state.pos[who] = nxt
+    # Collection: standing on food eats it -- it disappears and the score goes up.
     here = state.pos[who]
     if here in state.foods:
         state.foods.discard(here)
@@ -131,21 +149,27 @@ def run_game(setup, you_agent, rival_agent, max_turns=400):
     you_decisions = 0
     turns = 0
 
-    for _ in range(max_turns):
+    for _ in range(max_turns):                       # safety cap: a game can never run forever
+        # End condition 1: all food is gone.
         if not state.foods:
             break
+        # End condition 2: stalemate -- neither player can reach any food that's left.
         if not can_reach_any_food(state, YOU) and not can_reach_any_food(state, RIVAL):
             break
         turns += 1
 
+        # YOU moves first. We time only YOUR decision -- that is the
+        # "ms per move" cost we compare between greedy and contest-aware.
         start = time.perf_counter()
         move = you_agent(state, YOU)
         you_time += time.perf_counter() - start
         you_decisions += 1
         apply_move(state, YOU, move)
 
+        # YOU may have taken the last food; if so the rival doesn't move.
         if not state.foods:
             break
+        # Then the RIVAL moves (always the fixed greedy policy).
         apply_move(state, RIVAL, rival_agent(state, RIVAL))
 
     my_food = state.score[YOU]

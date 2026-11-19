@@ -95,6 +95,14 @@ class TestContestAwareBehaviour(unittest.TestCase):
         self.assertEqual(greedy_agent(state, YOU), 'R')
         self.assertEqual(contest_aware_agent(state, YOU), 'D')
 
+    def test_demo_board_outcomes(self):
+        # The hand-walkthrough board in demo.py: greedy loses 0-3, contest-aware wins 2-1.
+        from demo import demo_setup
+        greedy = run_game(demo_setup(), greedy_agent, rival_agent)
+        contest = run_game(demo_setup(), contest_aware_agent, rival_agent)
+        self.assertEqual((greedy['my_food'], greedy['rival_food']), (0, 3))
+        self.assertEqual((contest['my_food'], contest['rival_food']), (2, 1))
+
 
 class TestBoardGeneration(unittest.TestCase):
     def test_generated_board_is_connected(self):

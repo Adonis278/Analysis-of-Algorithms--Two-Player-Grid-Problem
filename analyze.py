@@ -86,8 +86,11 @@ def significance(rows):
 
     wins = sum(1 for d in diffs if d > 0)
     losses = sum(1 for d in diffs if d < 0)
-    decisive = wins + losses
+    decisive = wins + losses     # boards where the agents ended differently; ties tell us nothing
 
+    # Sign test idea: if the two strategies were equally good, each decisive board
+    # would be a coin flip (50/50). 159 heads out of 267 flips is very unlikely by
+    # chance -- that unlikeliness is the p-value.
     # Sign test (normal approximation with continuity correction) under H0: p = 0.5.
     if decisive:
         expected = decisive / 2
@@ -98,6 +101,9 @@ def significance(rows):
         z, p_value = 0.0, 1.0
 
     # Bootstrap 95% CI for the mean food difference (fixed seed -> reproducible).
+    # Idea: resample the 1,800 board differences with replacement 2,000 times and
+    # see how much the average moves around. The middle 95% of those averages is
+    # the confidence interval; if it doesn't include 0, the gain is real.
     rng = random.Random(12345)
     n = len(diffs)
     boot_means = []
@@ -158,15 +164,61 @@ def plot_decision_time(rows, fname='decision_time.png'):
     plt.close()
 
 
+def plot_decisive_boards(rows, fname='decisive_boards.png'):
+    """The headline picture: on boards where the two agents ended DIFFERENTLY,
+    how often did contest-aware do better vs worse? Split by food count and by
+    wall density. (Boards where both agents collected the same food are left
+    out -- they carry no information about which strategy is better.)
+    """
+    by_board = defaultdict(dict)
+    for r in rows:
+        by_board[r['board_id']][r['agent']] = r
+
+    def counts(key):
+        better, worse = defaultdict(int), defaultdict(int)
+        for b in by_board.values():
+            diff = b['contest_aware']['my_food'] - b['greedy']['my_food']
+            level = b['greedy'][key]
+            if diff > 0:
+                better[level] += 1
+            elif diff < 0:
+                worse[level] += 1
+        levels = sorted(set(better) | set(worse))
+        return levels, [better[l] for l in levels], [worse[l] for l in levels]
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.8), layout='constrained')
+    panels = (('n_food', 'food count', '{}'), ('density', 'wall density', '{:.0%}'))
+    for ax, (key, label, fmt) in zip(axes, panels):
+        levels, better, worse = counts(key)
+        xs = range(len(levels))
+        ax.bar([x - 0.2 for x in xs], better, width=0.4, color='#16a34a',
+               label='contest-aware collected MORE')
+        ax.bar([x + 0.2 for x in xs], worse, width=0.4, color='#dc2626',
+               label='contest-aware collected LESS')
+        for x, b, w in zip(xs, better, worse):
+            ax.text(x - 0.2, b, str(b), ha='center', va='bottom', fontsize=9)
+            ax.text(x + 0.2, w, str(w), ha='center', va='bottom', fontsize=9)
+        ax.set_xticks(list(xs))
+        ax.set_xticklabels([fmt.format(l) for l in levels])
+        ax.set_xlabel(label)
+        ax.set_ylabel('number of boards')
+        ax.spines[['top', 'right']].set_visible(False)
+    axes[0].legend(fontsize=8, frameon=False, loc='upper left')
+    fig.suptitle('Boards where the two agents ended differently (267 of 1,800)', fontsize=11)
+    fig.savefig(os.path.join(FIG_DIR, fname), dpi=120)
+    plt.close(fig)
+
+
 def main():
     rows = load()
     os.makedirs(FIG_DIR, exist_ok=True)
-    overall_table(rows)
-    paired_improvement(rows)
-    significance(rows)
+    overall_table(rows)                 # 1. headline averages per agent
+    paired_improvement(rows)            # 2. same-board comparison: better / equal / worse
+    significance(rows)                  # 3. is the difference real? (sign test + bootstrap)
     plot_winrate(rows, 'n_food', 'food count', 'winrate_by_food.png')
     plot_winrate(rows, 'density', 'wall density', 'winrate_by_density.png')
     plot_decision_time(rows)
+    plot_decisive_boards(rows)
     print(f'\nFigures written to {FIG_DIR}/')
 
 

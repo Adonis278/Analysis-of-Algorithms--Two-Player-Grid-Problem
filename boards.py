@@ -17,7 +17,11 @@ MAX_ATTEMPTS = 500          # seeds to try before giving up
 
 
 def _open_component(board, start):
-    """All passable cells reachable from `start` (flood fill, players ignored)."""
+    """All passable cells reachable from `start` (flood fill, players ignored).
+
+    Same idea as BFS but we only need WHICH cells are reachable, not how far,
+    so a simple stack (depth-first) is enough. O(N^2).
+    """
     seen = {start}
     stack = [start]
     while stack:
@@ -33,14 +37,19 @@ def _open_component(board, start):
 
 def _draw_board(density, n_food, seed):
     """Draw one candidate board from `seed` (may be invalid)."""
+    # Our own seeded random generator: the same seed always draws the same board,
+    # so anyone re-running the experiment gets identical results.
     rng = random.Random(seed)
     cells = [(r, c) for r in range(N) for c in range(N)]
 
+    # Each cell independently becomes a wall with probability `density`
+    # (0.10 = open field, 0.40 = tight maze).
     walls = {cell for cell in cells if rng.random() < density}
     open_cells = [cell for cell in cells if cell not in walls]
     if len(open_cells) < n_food + 2:        # need room for P, O, and the food
         return None
 
+    # Pick n_food + 2 DISTINCT open cells: first is YOU, second is RIVAL, rest are food.
     picks = rng.sample(open_cells, n_food + 2)
     you, rival = picks[0], picks[1]
     foods = set(picks[2:])
@@ -65,6 +74,8 @@ def generate_valid_board(density, n_food, seed):
     happens for impossible parameters, e.g. near-total wall density).
     """
     for attempt in range(MAX_ATTEMPTS):
+        # Rejection sampling: draw, check, and if it fails try the next seed.
+        # 7919 is just a prime step so retries land on well-spread seeds.
         setup = _draw_board(density, n_food, seed + attempt * 7919)
         if setup is not None and _is_valid(setup):
             # Keep only the food that is actually reachable, so scores are clean.

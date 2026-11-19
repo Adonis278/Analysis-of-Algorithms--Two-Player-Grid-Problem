@@ -15,9 +15,11 @@ from boards import generate_valid_board
 from agents import greedy_agent, contest_aware_agent, rival_agent
 from game import run_game
 
-DENSITIES = [0.10, 0.25, 0.40]
-FOOD_COUNTS = [5, 15, 30]
-N_BOARDS = 200
+# The two board "knobs" we vary -- together they control how contested a game is.
+DENSITIES = [0.10, 0.25, 0.40]   # fraction of cells that are walls (open -> maze)
+FOOD_COUNTS = [5, 15, 30]        # food items on the board (scarce -> plentiful)
+N_BOARDS = 200                   # boards per (density, food) combo. Set to 40 for a fast demo run.
+# Total games = 3 densities x 3 food counts x 200 boards x 2 agents = 3,600.
 
 AGENTS = {'greedy': greedy_agent, 'contest_aware': contest_aware_agent}
 
@@ -38,8 +40,11 @@ def run_all(out_path='results.csv'):
             for index in range(N_BOARDS):
                 board_id = f'{int(density * 100):02d}-{n_food:02d}-{index:04d}'
                 setup = generate_valid_board(density, n_food, _board_seed(density, n_food, index))
+                # PAIRED DESIGN: the SAME `setup` is played by BOTH agents. Any
+                # difference in food collected is caused by the strategy, not the map.
                 for name, agent in AGENTS.items():
                     result = run_game(setup, agent, rival_agent)
+                    # share = my fraction of the food that got eaten (0.5 = even split).
                     collected = result['my_food'] + result['rival_food']
                     share = (result['my_food'] / collected) if collected else 0.0
                     rows.append({
