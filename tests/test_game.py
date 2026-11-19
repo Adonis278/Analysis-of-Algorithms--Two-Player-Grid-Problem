@@ -83,6 +83,30 @@ class TestTermination(unittest.TestCase):
         self.assertEqual(result['my_food'] + result['rival_food'], 0)
 
 
+class TestContestAwareBehaviour(unittest.TestCase):
+    def test_contest_aware_skips_a_food_it_would_lose(self):
+        # Open 5x5. YOU at (0,0), RIVAL at (0,3).
+        #   F_lose (0,2): you need 2 steps, rival needs 1  -> rival wins it.
+        #   F_win  (3,0): you need 3 steps, rival needs 6  -> you win it.
+        # Greedy chases the NEAREST food (F_lose, dist 2) and steps 'R'.
+        # Contest-aware skips the unwinnable F_lose and heads to F_win, stepping 'D'.
+        board = Board(walls=set(), size=5)
+        state = GameState(board, you=(0, 0), rival=(0, 3), foods={(0, 2), (3, 0)})
+        self.assertEqual(greedy_agent(state, YOU), 'R')
+        self.assertEqual(contest_aware_agent(state, YOU), 'D')
+
+
+class TestBoardGeneration(unittest.TestCase):
+    def test_generated_board_is_connected(self):
+        from boards import _open_component
+        setup = generate_valid_board(density=0.25, n_food=15, seed=42)
+        region = _open_component(setup['board'], setup['you'])
+        self.assertIn(setup['rival'], region)               # rival reachable
+        for food in setup['foods']:                         # every kept food reachable
+            self.assertIn(food, region)
+        self.assertTrue(setup['foods'])                     # at least some food
+
+
 class TestAgentsOnRandomBoards(unittest.TestCase):
     def test_both_agents_finish_valid_games(self):
         for index in range(20):

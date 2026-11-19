@@ -129,6 +129,9 @@ game and `F` the number of foods.
   board, differences cannot be explained by luck of the map.
 - **Scale.** 3 densities × 3 food counts × 200 boards × 2 agents = **3,600 games**.
 - **Metrics.** Food collected, win/tie/loss vs the rival, and average decision time per move.
+- **Significance (`analyze.py`).** On the paired boards where the agents diverge, a two-sided
+  **sign test** checks whether contest-aware wins more often than a coin flip; a **bootstrap**
+  (2,000 resamples) gives a 95% confidence interval for the mean food difference.
 
 ---
 
@@ -143,6 +146,13 @@ game and `F` the number of foods.
 
 **Paired comparison (1,800 identical boards):** contest-aware collected more food on **159**
 boards, fewer on **108**, and tied on **1,533**; mean food difference **+0.055** per game.
+
+**Significance.** The two strategies play out identically on most boards, so the real test is the
+**267 "decisive" boards where they diverge**. There contest-aware wins 159 and loses 108 — a
+**two-sided sign test gives z = 3.06, p = 0.002**, so the advantage is not chance. A bootstrap
+(2,000 resamples) puts the **95% confidence interval for the mean food gain at [+0.009, +0.103]**,
+which excludes zero. Both tests reject H0 at α = 0.05: contest-aware is genuinely, if modestly,
+better.
 
 ### 5.2 Where the advantage comes from
 
@@ -167,12 +177,15 @@ Figures (regenerate with `python analyze.py`):
 
 ### 5.3 Interpretation
 
-The data **supports H1 weakly**: contest-aware is better on average and, on identical boards,
-helps roughly 1.5× as often as it hurts. The effect is **small overall** because on most boards
-the two strategies pick the same food, so the game plays out identically (1,533 of 1,800 ties).
-The advantage is **largest where contest is highest** — the most food (`k = 30`) and the most
-open boards (`d = 0.10`–`0.25`) — and **reverses in dense mazes** (`d = 0.40`), where narrow
-corridors force both agents into the same moves and leave little to reason about.
+The data **supports H1**: contest-aware is better on average, and on the boards where the
+strategies diverge the advantage is **statistically significant** (sign test p = 0.002; bootstrap
+CI excludes zero). The effect is **small in aggregate** because on most boards the two strategies
+pick the same food, so the game plays out identically (1,533 of 1,800 ties) — the strategies only
+*can* differ when the nearest food and the nearest *winnable* food are not the same cell. When
+they do differ, reasoning about the opponent's reach pays off. The advantage is **largest where
+contest is highest** — the most food (`k = 30`) and the most open boards (`d = 0.10`–`0.25`) — and
+**reverses slightly in dense mazes** (`d = 0.40`), where narrow corridors force both agents into
+the same moves and leave little to reason about.
 
 > IN YOUR WORDS: write the headline conclusion as you would say it out loud: reasoning about the
 > opponent's reach is a cheap, net-positive tweak that pays off most when the board is open and
@@ -191,8 +204,9 @@ corridors force both agents into the same moves and leave little to reason about
 
 ## 7. Reproducibility
 
-- Tests: `python -m pytest` → 9 passing (BFS distances, legal moves, collection, termination,
-  stalemate, random-board games).
+- Tests: `python -m pytest` → 11 passing (BFS distances, wall detours, legal moves, collection,
+  termination, stalemate, a crafted board where contest-aware provably diverges from greedy,
+  board connectivity, and random-board games).
 - Full pipeline: `python experiment.py` then `python analyze.py`.
 - Code: engine `game.py`, strategies `agents.py`, boards `boards.py`, runner `experiment.py`,
   analysis `analyze.py`.
