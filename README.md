@@ -43,4 +43,4 @@ python analyze.py         # writes summary + figures/
 python -m pytest          # tests
 ```
 
-Course project — Analysis of Algorithms. Final submission: Nov 19, 2026.
+Course project — Analysis of Algorithms. 2026.
